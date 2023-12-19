@@ -304,12 +304,17 @@ static int gc9a01a_set_brightness(const struct device *dev,
 				  const uint8_t brightness)
 {
 	const struct gc9a01a_config *config = dev->config;
-	uint32_t step=config->backlight.period/100;
-	int ret = pwm_set_pulse_dt(&config->backlight,brightness*step);
 
-	if(ret){
-		LOG_ERR("Failed to set pulse width");
-		return ret;
+	if (config->backlight.port) {
+		gpio_pin_set_dt(&config->backlight, brightness > 0);
+	} else {
+		uint32_t step=config->backlight_pwm.period/100;
+		int ret = pwm_set_pulse_dt(&config->backlight_pwm,brightness*step);
+
+		if(ret){
+			LOG_ERR("Failed to set pulse width");
+			return ret;
+		}
 	}
 	return 0;
 
@@ -327,7 +332,7 @@ static int gc9a01a_init(const struct device *dev)
 
 	int r;
 
-	if (!spi_is_ready_dt(&config->spi)) { 
+	if (!spi_is_ready(&config->spi)) {
 		LOG_ERR("SPI device is not ready");
 		return -ENODEV;
 	}
@@ -341,6 +346,14 @@ static int gc9a01a_init(const struct device *dev)
 	if (r < 0) {
 		LOG_ERR("Could not configure command/data GPIO (%d)", r);
 		return r;
+	}
+
+	if (config->backlight.port != NULL) {
+		r = gpio_pin_configure_dt(&config->backlight, GPIO_OUTPUT);
+		if (!device_is_ready(config->backlight.port)) {
+			LOG_ERR("Backlight GPIO device not ready");
+			return -ENODEV;
+		}
 	}
 
 	if (config->reset.port != NULL) {
@@ -590,7 +603,9 @@ static const struct display_driver_api gc9a01a_api = {
 			cmd_data_gpios),											\
 		.reset = GPIO_DT_SPEC_GET_OR(INST_DT_GC9A01A(n),        		\
 			reset_gpios, {0}),    										\
-		.backlight = PWM_DT_SPEC_GET(DT_PROP(INST_DT_GC9A01A(n), backlight_gpios)),\
+		.backlight = GPIO_DT_SPEC_GET_OR(INST_DT_GC9A01A(n),        		\
+			backlight_gpios, {0}),    										\
+		.backlight_pwm = PWM_DT_SPEC_GET_OR(DT_PROP(INST_DT_GC9A01A(n), backlight_gpios), {0}),\
 		.pixel_format = DT_PROP(INST_DT_GC9A01A(n), pixel_format), 		\
 		.rotation= DT_PROP(INST_DT_GC9A01A(n), rotation),        		\
 		.x_resolution = DT_PROP(INST_DT_GC9A01A(n), width),            	\

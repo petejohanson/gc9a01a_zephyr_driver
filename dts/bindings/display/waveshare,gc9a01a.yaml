@@ -13,7 +13,6 @@ include: [spi-device.yaml, display-controller.yaml]
 properties:
     reset-gpios:
       type: phandle-array
-      required: true
       description: RESET pin
 
         The RESET pin of the GC9A01A is active low.
@@ -55,7 +54,10 @@ properties:
         Display inversion mode. Every bit is inverted from the frame memory to
         the display.
 
-    backlight-gpios:
+    backlight-pwm:
       type: phandle
-      required: true
       description: Display Backlight PWM setting
+
+    backlight-gpios:
+      type: phandle-array
+      description: Basic Display Backlight On/Off
